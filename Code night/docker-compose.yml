@@ -1,0 +1,50 @@
+version: "3.9"
+
+services:
+  ticket-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.ticket
+    container_name: ticket-service
+    environment:
+      - DATABASE_URL=postgresql+psycopg2://campus:campus@db:5432/campus
+      - SECRET_KEY=dev-secret-change-me
+      - INTERNAL_SECRET=dev-internal-secret
+      - AI_API_KEY=${AI_API_KEY:-}
+      - AI_API_BASE=${AI_API_BASE:-}
+      - NOTIFY_WEBHOOK_URL=${NOTIFY_WEBHOOK_URL:-}
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+
+  agent-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.agent
+    container_name: agent-service
+    environment:
+      - TICKET_SERVICE_URL=http://ticket-service:8000
+      - INTERNAL_SECRET=dev-internal-secret
+      - AGENT_SHARED_SECRET=agent-secret
+      - AI_API_KEY=${AI_API_KEY:-}
+      - AI_API_BASE=${AI_API_BASE:-}
+      - CALENDAR_API_BASE=${CALENDAR_API_BASE:-}
+    ports:
+      - "8001:8001"
+    depends_on:
+      - ticket-service
+
+  db:
+    image: postgres:15-alpine
+    container_name: ticket-db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=campus
+      - POSTGRES_PASSWORD=campus
+      - POSTGRES_DB=campus
+    volumes:
+      - db_data:/var/lib/postgresql/data
+
+volumes:
+  db_data:
