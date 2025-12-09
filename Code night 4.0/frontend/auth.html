@@ -1,0 +1,77 @@
+﻿<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <title>CampuSupport | Auth</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { margin:0; font-family: Arial, sans-serif; background:#0f172a; color:#e2e8f0; display:flex; justify-content:center; align-items:center; min-height:100vh; }
+    .card { background:#111827; padding:20px; border-radius:12px; width:320px; box-shadow:0 12px 30px rgba(0,0,0,0.35); }
+    h2 { margin-top:0; }
+    label { display:block; font-size:13px; margin-bottom:6px; color:#cbd5e1; }
+    input, select, button { width:100%; padding:10px 12px; border-radius:10px; border:1px solid rgba(255,255,255,0.1); background:#0b1220; color:#e2e8f0; margin-bottom:10px; }
+    button { background: linear-gradient(135deg,#22d3ee,#6366f1); border:none; font-weight:600; cursor:pointer; }
+    small { color:#cbd5e1; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h2>Kayit ol</h2>
+    <label for="regEmail">E-posta</label>
+    <input id="regEmail" type="email" placeholder="student@campus.edu">
+    <label for="regPass">Sifre</label>
+    <input id="regPass" type="password" placeholder="********">
+    <label for="regRole">Rol</label>
+    <select id="regRole">
+      <option value="student" selected>student</option>
+      <option value="support">support</option>
+      <option value="department">department</option>
+      <option value="admin">admin</option>
+    </select>
+    <label for="regDept">Departman ID (support/department icin)</label>
+    <input id="regDept" type="number" placeholder="Orn. 1">
+    <button onclick="registerUser()">Kayit ol</button>
+
+    <h2>Giris yap</h2>
+    <label for="loginEmail">E-posta</label>
+    <input id="loginEmail" type="email" placeholder="student@campus.edu">
+    <label for="loginPass">Sifre</label>
+    <input id="loginPass" type="password" placeholder="********">
+    <button onclick="login()">Giris</button>
+    <small>Giris basarili olunca otomatik dashboard'a gider.</small>
+  </div>
+
+  <script>
+    const api = window.location.origin || "";
+
+    async function registerUser() {
+      const email = document.getElementById("regEmail").value;
+      const password = document.getElementById("regPass").value;
+      const role = document.getElementById("regRole").value;
+      const dept = document.getElementById("regDept").value;
+      if (!email || !password) { alert("Email ve sifre gerekli"); return; }
+      if ((role === "support" || role === "department") && !dept) { alert("Departman ID gir"); return; }
+      const payload = { email, password, role };
+      if (dept) payload.department_id = Number(dept);
+      const res = await fetch(`${api}/auth/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) { alert("Kayit basarisiz"); return; }
+      alert("Kayit tamam, simdi giris yapabilirsiniz");
+    }
+
+    async function login() {
+      const email = document.getElementById("loginEmail").value;
+      const password = document.getElementById("loginPass").value;
+      const res = await fetch(`${api}/auth/token`, { method: "POST", body: new URLSearchParams({ username: email, password }) });
+      if (!res.ok) { alert("Giris basarisiz"); return; }
+      const data = await res.json();
+      localStorage.setItem("campusToken", data.access_token);
+      window.location.href = "/frontend/ticket_create.html";
+    }
+  </script>
+</body>
+</html>
+

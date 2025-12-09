@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <title>Departman Gorunumu | CampuSupport</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { margin:0; font-family: Arial, sans-serif; background:#0f172a; color:#e2e8f0; display:flex; justify-content:center; align-items:center; min-height:100vh; }
+    .card { background:#111827; padding:22px; border-radius:14px; width:420px; box-shadow:0 12px 30px rgba(0,0,0,0.35); }
+    h1 { margin-top:0; }
+    label { display:block; font-size:13px; margin-bottom:6px; color:#cbd5e1; }
+    select, button { width:100%; padding:10px 12px; border-radius:10px; border:1px solid rgba(255,255,255,0.1); background:#0b1220; color:#e2e8f0; margin-bottom:12px; }
+    button { background: linear-gradient(135deg,#22d3ee,#6366f1); border:none; font-weight:600; cursor:pointer; }
+    a { color:#38bdf8; text-decoration:none; }
+    .ticket { border:1px solid rgba(255,255,255,0.08); border-radius:10px; padding:10px; margin:8px 0; background:#0b1220; }
+    small { color:#cbd5e1; }
+    .row { display:flex; gap:10px; justify-content:space-between; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Departman / Support</h1>
+    <div class="row">
+      <small>Token: <span id="authStatus">Yok</span></small>
+      <a href="/frontend/auth.html">Auth</a>
+    </div>
+    <label>Durum filtresi</label>
+    <select id="statusFilter">
+      <option value="">Hepsi</option>
+      <option value="open">Open</option>
+      <option value="in_progress">In Progress</option>
+      <option value="resolved">Resolved</option>
+      <option value="closed">Closed</option>
+    </select>
+    <label>Oncelik sirasi</label>
+    <select id="priorityOrder">
+      <option value="false">Normal</option>
+      <option value="true">Yuksek -> Dusuk</option>
+    </select>
+    <button onclick="fetchDeptTickets()">Departmandaki ticket'lar</button>
+    <div id="list"></div>
+    <div class="row" style="margin-top:8px;">
+      <a href="/frontend/ticket_create.html">Ticket ac</a>
+      <a href="/frontend/tickets_list.html">Ticket'larim</a>
+      <a href="/frontend/ticket_detail.html">Ticket detay</a>
+    </div>
+  </div>
+
+  <script>
+    const api = "http://127.0.0.1:8000";
+    let token = localStorage.getItem("campusToken") || "";
+    const statusEl = document.getElementById("authStatus");
+    statusEl.textContent = token ? "Hazir" : "Yok";
+    const listEl = document.getElementById("list");
+    const authHeaders = () => token ? { "Authorization": `Bearer ${token}` } : {};
+
+    async function fetchDeptTickets(){
+      if (!token){ alert("Giris yap"); return; }
+      const status = document.getElementById("statusFilter").value;
+      const priorityOrder = document.getElementById("priorityOrder").value;
+      const params = new URLSearchParams();
+      if (status) params.append("status", status);
+      if (priorityOrder === "true") params.append("order_by_priority", "true");
+      const res = await fetch(`${api}/tickets?${params.toString()}`, { headers: authHeaders() });
+      if (!res.ok){ alert(`Basarisiz (${res.status})`); return; }
+      const data = await res.json();
+      listEl.innerHTML = "";
+      if (!data.length){ listEl.innerHTML = "<small>Kayit yok</small>"; return; }
+      data.forEach(t=>{
+        const div = document.createElement("div");
+        div.className = "ticket";
+        div.innerHTML = `<strong>${t.title}</strong><br><small>#${t.id} - ${t.status} - Oncelik ${t.priority}</small><p>${t.description}</p>`;
+        listEl.appendChild(div);
+      });
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <title>Ticket Detay | CampuSupport</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { margin:0; font-family: Arial, sans-serif; background:#0f172a; color:#e2e8f0; display:flex; justify-content:center; align-items:center; min-height:100vh; }
+    .card { background:#111827; padding:22px; border-radius:14px; width:420px; box-shadow:0 12px 30px rgba(0,0,0,0.35); }
+    h1 { margin-top:0; }
+    label { display:block; font-size:13px; margin-bottom:6px; color:#cbd5e1; }
+    input, select, textarea, button { width:100%; padding:10px 12px; border-radius:10px; border:1px solid rgba(255,255,255,0.1); background:#0b1220; color:#e2e8f0; margin-bottom:12px; }
+    textarea { min-height:90px; resize:vertical; }
+    button { background: linear-gradient(135deg,#22d3ee,#6366f1); border:none; font-weight:600; cursor:pointer; }
+    a { color:#38bdf8; text-decoration:none; }
+    .ticket { border:1px solid rgba(255,255,255,0.08); border-radius:10px; padding:10px; margin:8px 0; background:#0b1220; }
+    small { color:#cbd5e1; }
+    .row { display:flex; gap:10px; justify-content:space-between; flex-wrap:wrap; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Ticket Detay</h1>
+    <div class="row">
+      <small>Token: <span id="authStatus">Yok</span></small>
+      <a href="/frontend/auth.html">Auth</a>
+    </div>
+    <label for="detailId">Ticket ID</label>
+    <input id="detailId" type="number" placeholder="Orn. 1">
+    <button onclick="loadTicketDetail()">Detayi getir</button>
+    <h3>Durum guncelle</h3>
+    <select id="statusUpdate">
+      <option value="open">Open</option>
+      <option value="in_progress">In Progress</option>
+      <option value="resolved">Resolved</option>
+      <option value="closed">Closed</option>
+    </select>
+    <button onclick="updateStatus()">Durum guncelle</button>
+    <h3>Baslik/Oncelik duzenle</h3>
+    <input id="editTitle" placeholder="Yeni baslik">
+    <select id="editPriority">
+      <option value="">Degistirme</option>
+      <option value="low">Dusuk</option>
+      <option value="medium">Orta</option>
+      <option value="high">Yuksek</option>
+    </select>
+    <textarea id="editDescription" placeholder="Degistirmek istersen yaz..."></textarea>
+    <button onclick="saveEdits()">Kaydet</button>
+    <button style="background:#ef4444;" onclick="deleteTicket()">Ticket sil</button>
+
+    <div id="detailCard" class="ticket"></div>
+    <h3>Yorumlar</h3>
+    <div id="comments"></div>
+    <textarea id="newComment" placeholder="Yeni yorum"></textarea>
+    <button onclick="postComment()">Yorum gonder</button>
+
+    <div class="row" style="margin-top:8px;">
+      <a href="/frontend/ticket_create.html">Ticket ac</a>
+      <a href="/frontend/tickets_list.html">Ticket'larim</a>
+      <a href="/frontend/department.html">Departman gorunumu</a>
+    </div>
+  </div>
+
+  <script>
+    const api = "http://127.0.0.1:8000";
+    let token = localStorage.getItem("campusToken") || "";
+    const statusEl = document.getElementById("authStatus");
+    statusEl.textContent = token ? "Hazir" : "Yok";
+    const authHeaders = () => token ? { "Authorization": `Bearer ${token}` } : {};
+
+    function renderDetail(t){
+      const card = document.getElementById("detailCard");
+      if (!t){ card.innerHTML=""; return; }
+      card.innerHTML = `<strong>${t.title}</strong><br><small>#${t.id} - ${t.status} - Oncelik ${t.priority}</small><p>${t.description||""}</p>`;
+      document.getElementById("statusUpdate").value = t.status;
+      document.getElementById("editTitle").value = t.title;
+      document.getElementById("editPriority").value = t.priority;
+      document.getElementById("editDescription").value = t.description || "";
+    }
+    function renderComments(comments){
+      const box = document.getElementById("comments");
+      box.innerHTML = "";
+      comments.forEach(c=>{
+        const div = document.createElement("div"); div.className="ticket"; div.innerHTML=`<small>${c.author_email} - ${c.created_at}</small><p>${c.content}</p>`; box.appendChild(div);
+      });
+    }
+
+    async function loadTicketDetail(){
+      if (!token){ alert("Giris yap"); return; }
+      const id = Number(document.getElementById("detailId").value);
+      if (!id){ alert("Ticket ID gir"); return; }
+      const res = await fetch(`${api}/tickets/${id}`, { headers: authHeaders() });
+      if (!res.ok){ alert(`Basarisiz (${res.status})`); return; }
+      const data = await res.json();
+      renderDetail(data);
+      renderComments(data.comments || []);
+    }
+
+    async function updateStatus(){
+      const id = Number(document.getElementById("detailId").value);
+      if (!id){ alert("Ticket ID gir"); return; }
+      const status = document.getElementById("statusUpdate").value;
+      const res = await fetch(`${api}/tickets/${id}/status`, {
+        method:"PATCH",
+        headers:{ "Content-Type":"application/json", ...authHeaders() },
+        body: JSON.stringify({ status })
+      });
+      if (!res.ok){ alert(`Basarisiz (${res.status})`); return; }
+      loadTicketDetail();
+    }
+
+    async function saveEdits(){
+      const id = Number(document.getElementById("detailId").value);
+      if (!id){ alert("Ticket ID gir"); return; }
+      const payload = {};
+      const t = document.getElementById("editTitle").value;
+      const d = document.getElementById("editDescription").value;
+      const p = document.getElementById("editPriority").value;
+      if (t) payload.title = t;
+      if (d) payload.description = d;
+      if (p) payload.priority = p;
+      const res = await fetch(`${api}/tickets/${id}`, {
+        method:"PATCH",
+        headers:{ "Content-Type":"application/json", ...authHeaders() },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok){ alert(`Basarisiz (${res.status})`); return; }
+      loadTicketDetail();
+    }
+
+    async function deleteTicket(){
+      const id = Number(document.getElementById("detailId").value);
+      if (!id){ alert("Ticket ID gir"); return; }
+      const res = await fetch(`${api}/tickets/${id}`, { method:"DELETE", headers: { ...authHeaders() } });
+      if (!res.ok && res.status !== 204){ alert(`Silinemedi (${res.status})`); return; }
+      renderDetail(null); renderComments([]);
+      alert("Silindi");
+    }
+
+    async function postComment(){
+      const id = Number(document.getElementById("detailId").value);
+      if (!id){ alert("Ticket ID gir"); return; }
+      const content = document.getElementById("newComment").value;
+      const res = await fetch(`${api}/tickets/${id}/comments`, {
+        method:"POST",
+        headers:{ "Content-Type":"application/json", ...authHeaders() },
+        body: JSON.stringify({ content })
+      });
+      if (!res.ok){ alert(`Basarisiz (${res.status})`); return; }
+      document.getElementById("newComment").value = "";
+      loadTicketDetail();
+    }
+  </script>
+</body>
+</html>
