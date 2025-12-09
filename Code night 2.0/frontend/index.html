@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <title>CampuSupport | Kampus Destek</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card: #111827;
+      --accent: #38bdf8;
+      --muted: #cbd5e1;
+      --radius: 14px;
+      --shadow: 0 12px 40px rgba(0,0,0,0.35);
+    }
+    body {
+      margin: 0;
+      font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: radial-gradient(circle at 20% 20%, rgba(56,189,248,0.08), transparent 30%),
+                  radial-gradient(circle at 80% 10%, rgba(248,113,113,0.08), transparent 25%),
+                  var(--bg);
+      color: #e2e8f0;
+      min-height: 100vh;
+    }
+    header { padding: 32px 7vw 12px; display:flex; justify-content:space-between; align-items:center; gap:12px; }
+    h1 { margin:0; font-size:28px; letter-spacing:-0.02em; }
+    main { padding: 0 7vw 60px; display:grid; gap:18px; }
+    section { background: var(--card); border:1px solid rgba(255,255,255,0.05); border-radius:var(--radius); padding:18px; box-shadow: var(--shadow); }
+    section h2 { margin:0 0 12px; font-size:18px; }
+    .grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(280px,1fr)); gap:14px; }
+    label { display:block; margin-bottom:6px; font-size:13px; color: var(--muted); }
+    input, select, textarea, button { width:100%; padding:10px 12px; border-radius:10px; border:1px solid rgba(255,255,255,0.1); background:#0b1220; color:#e2e8f0; font-size:14px; }
+    textarea { min-height:80px; resize: vertical; }
+    button { background: linear-gradient(135deg, #22d3ee, #6366f1); border:none; font-weight:600; cursor:pointer; transition: transform 120ms ease, box-shadow 120ms ease; box-shadow:0 12px 30px rgba(99,102,241,0.35); }
+    button:hover { transform: translateY(-1px); box-shadow:0 12px 30px rgba(99,102,241,0.45); }
+    .pill { display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:999px; font-size:12px; }
+    .priority-high { background: rgba(239,68,68,0.12); color:#fecdd3; }
+    .priority-medium { background: rgba(249,115,22,0.14); color:#fed7aa; }
+    .priority-low { background: rgba(34,197,94,0.12); color:#bbf7d0; }
+    .status-open { color:#bae6fd; }
+    .status-in_progress { color:#fde68a; }
+    .status-resolved { color:#bbf7d0; }
+    .status-closed { color:#cbd5e1; text-decoration: line-through; }
+    .card { padding:12px; border:1px solid rgba(255,255,255,0.06); border-radius:12px; background:#0c1324; }
+    small { color: var(--muted); }
+    #toast { position:fixed; bottom:20px; right:20px; background:#0ea5e9; color:#0b1220; padding:12px 16px; border-radius:12px; box-shadow: var(--shadow); display:none; }
+    .row { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>CampuSupport</h1>
+      <small>Kampus destek & ticket yonetim demosu</small>
+    </div>
+    <div><small>API docs: <code>/docs</code></small></div>
+  </header>
+
+  <main class="grid">
+    <section>
+      <h2>1) Giris yap</h2>
+      <div class="grid">
+        <div>
+          <label for="email">E-posta</label>
+          <input id="email" type="email" placeholder="student@campus.edu">
+        </div>
+        <div>
+          <label for="password">Sifre</label>
+          <input id="password" type="password" placeholder="********">
+        </div>
+      </div>
+      <button onclick="login()">Token al</button>
+      <small>Ornek hesap yoksa <code>/auth/register</code> ile kullanici olustur.</small>
+    </section>
+
+    <section>
+      <h2>2) Ticket olustur (ogrenci)</h2>
+      <div class="row">
+        <button style="width:auto;background:#0ea5e9;" onclick="getSuggestion()">AI oneri getir</button>
+        <small id="suggestionText"></small>
+      </div>
+      <div class="grid">
+        <div>
+          <label for="title">Baslik</label>
+          <input id="title" placeholder="Wi-Fi cekmiyor">
+        </div>
+        <div>
+          <label for="department">Departman</label>
+          <select id="department"></select>
+        </div>
+        <div>
+          <label for="priority">Oncelik</label>
+          <select id="priority">
+            <option value="low">Dusuk</option>
+            <option value="medium" selected>Orta</option>
+            <option value="high">Yuksek</option>
+          </select>
+        </div>
+      </div>
+      <label for="description">Aciklama</label>
+      <textarea id="description" placeholder="Sorunu detaylandir..."></textarea>
+      <button onclick="createTicket()">Ticket ac</button>
+    </section>
+
+    <section>
+      <h2>3) Ticket'larim</h2>
+      <button onclick="fetchMine()">Listele</button>
+      <div id="myTickets" class="grid"></div>
+    </section>
+
+    <section>
+      <h2>4) Departman/Support gorunumu</h2>
+      <div class="grid">
+        <div>
+          <label for="statusFilter">Durum filtresi</label>
+          <select id="statusFilter">
+            <option value="">Hepsi</option>
+            <option value="open">Open</option>
+            <option value="in_progress">In Progress</option>
+            <option value="resolved">Resolved</option>
+            <option value="closed">Closed</option>
+          </select>
+        </div>
+        <div>
+          <label for="priorityOrder">Oncelik sirasi</label>
+          <select id="priorityOrder">
+            <option value="false">Normal</option>
+            <option value="true">Yuksek -> Dusuk</option>
+          </select>
+        </div>
+      </div>
+      <button onclick="fetchDepartmentTickets()">Departmandaki ticket'lar</button>
+      <div id="deptTickets" class="grid"></div>
+    </section>
+
+    <section>
+      <h2>5) Ticket detay / duzenle / yorum</h2>
+      <div class="grid">
+        <div>
+          <label for="detailId">Ticket ID</label>
+          <input id="detailId" type="number" placeholder="Orn. 1">
+        </div>
+        <div>
+          <label for="statusUpdate">Durum guncelle</label>
+          <select id="statusUpdate">
+            <option value="open">Open</option>
+            <option value="in_progress">In Progress</option>
+            <option value="resolved">Resolved</option>
+            <option value="closed">Closed</option>
+          </select>
+        </div>
+      </div>
+      <div class="row">
+        <button style="width:auto" onclick="loadTicketDetail()">Detayi getir</button>
+        <button style="width:auto" onclick="updateStatus()">Durum guncelle</button>
+        <button style="width:auto" onclick="saveEdits()">Baslik/Oncelik duzenle</button>
+        <button style="width:auto;background:#ef4444;" onclick="deleteTicket()">Ticket sil</button>
+      </div>
+      <div class="grid">
+        <div>
+          <label for="editTitle">Baslik duzenle</label>
+          <input id="editTitle" placeholder="Yeni baslik">
+        </div>
+        <div>
+          <label for="editPriority">Oncelik duzenle</label>
+          <select id="editPriority">
+            <option value="">Degistirme</option>
+            <option value="low">Dusuk</option>
+            <option value="medium">Orta</option>
+            <option value="high">Yuksek</option>
+          </select>
+        </div>
+      </div>
+      <label for="editDescription">Aciklama duzenle</label>
+      <textarea id="editDescription" placeholder="Degistirmek istersen yaz..."></textarea>
+
+      <div id="ticketDetailCard" class="card" style="margin-top:10px;"></div>
+      <h3>Yorumlar</h3>
+      <div id="comments"></div>
+      <label for="newComment">Yeni yorum</label>
+      <textarea id="newComment" placeholder="Destek/ogrenci yorumlari burada"></textarea>
+      <button onclick="postComment()">Yorum gonder</button>
+      <div class="row" style="margin-top:10px;">
+        <button style="width:auto;background:#22c55e;" onclick="fetchAIInsights()">AI Ozet/Taslak al</button>
+        <small id="aiInsightsText"></small>
+      </div>
+    </section>
+  </main>
+
+  <div id="toast"></div>
+
+  <script>
+    const api = "";
+    let token = localStorage.getItem("campusToken") || "";
+    let currentTicketId = null;
+
+    const showToast = (msg, isError=false) => {
+      const toast = document.getElementById("toast");
+      toast.textContent = msg;
+      toast.style.background = isError ? "#ef4444" : "#0ea5e9";
+      toast.style.display = "block";
+      setTimeout(() => toast.style.display = "none", 3200);
+    };
+
+    const authHeaders = () => token ? { "Authorization": `Bearer ${token}` } : {};
+
+    async function login() {
+      const email = document.getElementById("email").value;
+      const password = document.getElementById("password").value;
+      const body = new URLSearchParams({ username: email, password });
+      const res = await fetch(`${api}/auth/token`, { method: "POST", body });
+      if (!res.ok) { showToast("Giris basarisiz", true); return; }
+      const data = await res.json();
+      token = data.access_token;
+      localStorage.setItem("campusToken", token);
+      showToast("Token hazir");
+    }
+
+    async function loadDepartments() {
+      const res = await fetch(`${api}/departments`);
+      const options = await res.json();
+      const select = document.getElementById("department");
+      select.innerHTML = "";
+      options.forEach(opt => {
+        const el = document.createElement("option");
+        el.value = opt.id;
+        el.textContent = `${opt.name}`;
+        select.appendChild(el);
+      });
+    }
+
+    async function createTicket() {
+      if (!token) { showToast("Once giris yap", true); return; }
+      const payload = {
+        title: document.getElementById("title").value,
+        description: document.getElementById("description").value,
+        department_id: Number(document.getElementById("department").value),
+        priority: document.getElementById("priority").value
+      };
+      const res = await fetch(`${api}/tickets`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...authHeaders() },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) { showToast("Ticket acilamadi", true); return; }
+      showToast("Ticket acildi");
+      fetchMine();
+    }
+
+    const renderTickets = (tickets, containerId) => {
+      const container = document.getElementById(containerId);
+      container.innerHTML = "";
+      tickets.forEach(t => {
+        const div = document.createElement("div");
+        div.className = "card";
+        div.innerHTML = `
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+            <strong>${t.title}</strong>
+            <span class="pill priority-${t.priority}">${t.priority}</span>
+          </div>
+          <div class="status-${t.status}">${t.status}</div>
+          <small>#${t.id} - Departman ${t.department_id} - Oncelik ${t.priority}</small>
+          <p>${t.description ?? ""}</p>
+          <button style="width:auto;margin-top:6px;" onclick="loadTicketDetail(${t.id})">Detay</button>
+        `;
+        container.appendChild(div);
+      });
+    };
+
+    async function fetchMine() {
+      if (!token) { showToast("Once giris yap", true); return; }
+      const res = await fetch(`${api}/tickets/me`, { headers: authHeaders() });
+      if (!res.ok) { showToast("Listeleme basarisiz", true); return; }
+      const data = await res.json();
+      renderTickets(data, "myTickets");
+    }
+
+    async function fetchDepartmentTickets() {
+      if (!token) { showToast("Once giris yap", true); return; }
+      const status = document.getElementById("statusFilter").value;
+      const priorityOrder = document.getElementById("priorityOrder").value;
+      const params = new URLSearchParams();
+      if (status) params.append("status", status);
+      if (priorityOrder === "true") params.append("order_by_priority", "true");
+      const res = await fetch(`${api}/tickets?${params.toString()}`, { headers: authHeaders() });
+      if (!res.ok) { showToast("Departman ticket'lari alinamadi", true); return; }
+      const data = await res.json();
+      renderTickets(data, "deptTickets");
+    }
+
+    const renderDetail = (t) => {
+      const card = document.getElementById("ticketDetailCard");
+      card.innerHTML = `
+        <div class="row" style="justify-content:space-between;">
+          <strong>${t.title}</strong>
+          <span class="pill priority-${t.priority}">${t.priority}</span>
+        </div>
+        <div class="status-${t.status}">Durum: ${t.status}</div>
+        <small>#${t.id} - Departman ${t.department?.name ?? t.department_id} - Assigned: ${t.assignee_email ?? 'yok'}</small>
+        <p>${t.description}</p>
+        <small>Olusturan: ${t.creator_email ?? t.created_by_id} - Son guncelleme: ${t.updated_at}</small>
+      `;
+      document.getElementById("detailId").value = t.id;
+      document.getElementById("statusUpdate").value = t.status;
+      document.getElementById("editTitle").value = t.title;
+      document.getElementById("editPriority").value = t.priority;
+      document.getElementById("editDescription").value = t.description;
+    };
+
+    const renderComments = (comments) => {
+      const container = document.getElementById("comments");
+      container.innerHTML = "";
+      comments.forEach(c => {
+        const div = document.createElement("div");
+        div.className = "card";
+        div.innerHTML = `<small>${c.author_email} - ${c.created_at}</small><p>${c.content}</p>`;
+        container.appendChild(div);
+      });
+    };
+
+    async function loadTicketDetail(idFromCard) {
+      if (!token) { showToast("Once giris yap", true); return; }
+      const id = idFromCard || Number(document.getElementById("detailId").value);
+      if (!id) { showToast("Ticket ID gir", true); return; }
+      const res = await fetch(`${api}/tickets/${id}`, { headers: authHeaders() });
+      if (!res.ok) { showToast("Detay alinamadi", true); return; }
+      const data = await res.json();
+      currentTicketId = data.id;
+      renderDetail(data);
+      renderComments(data.comments || []);
+    }
+
+    async function postComment() {
+      if (!token) { showToast("Once giris yap", true); return; }
+      if (!currentTicketId) { showToast("Once ticket detayi getir", true); return; }
+      const content = document.getElementById("newComment").value;
+      const res = await fetch(`${api}/tickets/${currentTicketId}/comments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...authHeaders() },
+        body: JSON.stringify({ content })
+      });
+      if (!res.ok) { showToast("Yorum eklenemedi", true); return; }
+      showToast("Yorum eklendi");
+      document.getElementById("newComment").value = "";
+      loadTicketDetail(currentTicketId);
+    }
+
+    async function updateStatus() {
+      if (!token) { showToast("Once giris yap", true); return; }
+      const id = currentTicketId || Number(document.getElementById("detailId").value);
+      const statusValue = document.getElementById("statusUpdate").value;
+      if (!id) { showToast("Ticket ID gir", true); return; }
+      const res = await fetch(`${api}/tickets/${id}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", ...authHeaders() },
+        body: JSON.stringify({ status: statusValue })
+      });
+      if (!res.ok) { showToast("Durum guncellenemedi", true); return; }
+      showToast("Durum guncellendi");
+      loadTicketDetail(id);
+    }
+
+    async function saveEdits() {
+      if (!token) { showToast("Once giris yap", true); return; }
+      const id = currentTicketId || Number(document.getElementById("detailId").value);
+      if (!id) { showToast("Ticket ID gir", true); return; }
+      const payload = {};
+      const title = document.getElementById("editTitle").value;
+      const description = document.getElementById("editDescription").value;
+      const priority = document.getElementById("editPriority").value;
+      if (title) payload.title = title;
+      if (description) payload.description = description;
+      if (priority) payload.priority = priority;
+      const res = await fetch(`${api}/tickets/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", ...authHeaders() },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) { showToast("Duzenleme yapilamadi", true); return; }
+      showToast("Ticket guncellendi");
+      loadTicketDetail(id);
+    }
+
+    async function deleteTicket() {
+      if (!token) { showToast("Once giris yap", true); return; }
+      const id = currentTicketId || Number(document.getElementById("detailId").value);
+      if (!id) { showToast("Ticket ID gir", true); return; }
+      const res = await fetch(`${api}/tickets/${id}`, { method: "DELETE", headers: { ...authHeaders() } });
+      if (!res.ok && res.status !== 204) { showToast("Silinemedi", true); return; }
+      showToast("Ticket silindi");
+      document.getElementById("ticketDetailCard").innerHTML = "";
+      document.getElementById("comments").innerHTML = "";
+      currentTicketId = null;
+      fetchMine();
+    }
+
+    async function getSuggestion() {
+      const description = document.getElementById("description").value;
+      if (!description) { showToast("Aciklama yaz", true); return; }
+      const res = await fetch(`${api}/ai/suggest`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ description })
+      });
+      if (!res.ok) { showToast("Oneri alinamadi", true); return; }
+      const data = await res.json();
+      document.getElementById("priority").value = data.suggested_priority;
+      document.getElementById("suggestionText").textContent = `Kategori: ${data.suggested_category}, Oncelik: ${data.suggested_priority}`;
+      showToast("AI oneri hazir");
+    }
+
+    async function fetchAIInsights() {
+      const id = currentTicketId || Number(document.getElementById("detailId").value);
+      if (!id) { showToast("Ticket ID gir", true); return; }
+      const res = await fetch(`${api}/tickets/${id}/ai-insights`, { headers: authHeaders() });
+      if (!res.ok) { showToast("AI ozet alinmadi", true); return; }
+      const data = await res.json();
+      document.getElementById("aiInsightsText").textContent = `Ozet: ${data.summary} | Taslak: ${data.draft_reply}`;
+      showToast("AI ozet/taslak hazir");
+    }
+
+    loadDepartments();
+  </script>
+</body>
+</html>
